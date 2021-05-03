@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Data.Ron", "FSharp.Data.Ron\FSharp.Data.Ron.fsproj", "{0F8C1780-68E3-4B91-A50C-D4EDA8803484}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Data.Ron.Tests", "FSharp.Data.Ron.Tests\FSharp.Data.Ron.Tests.fsproj", "{BD896748-EF65-4CB2-B201-6C7106066464}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0F8C1780-68E3-4B91-A50C-D4EDA8803484}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0F8C1780-68E3-4B91-A50C-D4EDA8803484}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0F8C1780-68E3-4B91-A50C-D4EDA8803484}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0F8C1780-68E3-4B91-A50C-D4EDA8803484}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BD896748-EF65-4CB2-B201-6C7106066464}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BD896748-EF65-4CB2-B201-6C7106066464}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BD896748-EF65-4CB2-B201-6C7106066464}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BD896748-EF65-4CB2-B201-6C7106066464}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
