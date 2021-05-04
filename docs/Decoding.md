@@ -1,15 +1,10 @@
-# FSharp.Data.Ron
-
-F# [RON](https://github.com/ron-rs/ron) parsing library.
-
-
-## Decoding
+# Decoding
 
 > The decoding principle almost entirely inspired by [Thoth.Json](https://github.com/thoth-org/Thoth.Json),
 > so basically the [Thoth.Json documentation](https://thoth-org.github.io/Thoth.Json/#Decoder)
 > mostly applies here.
 
-### Single value
+## Single value
 
 ```f#
 open FSharp.Data.Ron.Decoding
@@ -23,7 +18,7 @@ val it : int = Ok 32
 val it : int = Ok "foo"
 ```
 
-### Builder style
+## Builder style
 
 ```f#
 type Vector2 = { X: int; Y: int }
