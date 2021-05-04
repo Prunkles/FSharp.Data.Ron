@@ -171,9 +171,3 @@ module Decode =
         | RonValue.AnyStruct (AnyStruct.Unnamed (Some "Some", [inner])) ->
             innerDecoder inner |> Result.map Some
         | _ -> Error (DecodeError.Decode "Not an option")
-    
-//    let union (builder: string -> Choice<unit,>) = function
-//        | RonValue.AnyStruct (AnyStruct.En)
-    
-//    let option innerDecoder = function
-//        | RonValue.AnyStruct (AnyStruct.T)
