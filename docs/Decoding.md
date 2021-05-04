@@ -15,7 +15,7 @@ open FSharp.Data.Ron.Decoding
 val it : Result<int, DecodeError> = Ok 32
 
 > Decode.fromString "\"foo\"" Decode.string
-val it : Result<int, DecodeError> = Ok "foo"
+val it : Result<string, DecodeError> = Ok "foo"
 ```
 
 ## Builder style
