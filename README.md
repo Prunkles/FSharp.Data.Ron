@@ -1,6 +1,6 @@
 # FSharp.Data.Ron
 
-[![Nuget](https://img.shields.io/nuget/vpre/FSharp.Data.Ron)](https://www.nuget.org/packages/FSharp.Data.Ron/)
+[![Nuget](https://img.shields.io/nuget/vpre/FSharp.Data.Ron?style=flat-square)](https://www.nuget.org/packages/FSharp.Data.Ron/)
 
 F# [Rusty Object Notation](https://github.com/ron-rs/ron) parsing library.
 
