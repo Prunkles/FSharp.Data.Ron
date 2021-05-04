@@ -155,6 +155,122 @@ module Grammar =
         <|> float_signed_inf
         <?> "Float"
     
+    
+    
+    let numberR: Parser<_,_> =
+            
+        fun stream -> 
+            // # Store state
+            let index0 = stream.IndexToken
+            let stateTag0 = stream.StateTag
+            
+            let mutable c = stream.Peek()
+            let mutable isSigned = false
+            
+            // # helpers
+            let inline isDec (ch: char) = isDigit ch
+            let inline isBin (ch: char) = ch = '0' || ch = '1'
+            let inline isOct (ch: char) = isOctal ch
+            let inline isHex (ch: char) = isHex ch
+            let inline isSign (ch: char) = ch = '+' || ch = '-'
+//            let inline skipWhile (cond: char -> bool) (stream: CharStream<_>) =
+//                while cond c do c <- stream.SkipAndPeek()
+            
+            // return true if skip 1 or more
+            let inline skipWhileCheck1 (cond: char -> bool) (stream: CharStream<_>) =
+                let skip1 = cond c
+                if skip1 then
+                    c <- stream.SkipAndPeek()
+                    while cond c do c <- stream.SkipAndPeek()
+                    true
+                else
+                    false
+            
+            // # impl
+            
+            // check sign first
+            if isSign c then
+                isSigned <- true
+                c <- stream.SkipAndPeek() 
+            
+            let inline parseInt (stream: CharStream<_>) =
+                let r = stream.ReadFrom(index0)
+                
+                match isSigned with
+                | true -> Reply(RonValue.Integer(int r))
+                | false -> Reply(RonValue.Integer(int r))
+            
+            let inline replyError err =
+                stream.Seek(index0)
+                stream.StateTag <- stateTag0
+                Reply(Error, err)
+            
+            let inline replyFatalError err =
+                Reply(Error, err)
+            
+            let inline parseExpPart (stream: CharStream<_>) =
+                if c = '-' || c = '+' then
+                    c <- stream.SkipAndPeek()
+                if skipWhileCheck1 isDec stream then
+                    let r = stream.ReadFrom(index0)
+                    Reply(RonValue.Float (float r))
+                else 
+                    replyFatalError (expected "exponent power")
+            
+            // check 0x | 0b | 0o prefixes
+            
+            let c0, c1 =
+                let two = stream.Peek2()
+                two.Char0, two.Char1
+            
+            match c0, c1 with
+            | '0', 'x' ->
+                c <- stream.SkipAndPeek()
+                if skipWhileCheck1 isHex stream
+                then parseInt stream
+                else replyFatalError (expected "hex digits")
+            | '0', 'o' ->
+                c <- stream.SkipAndPeek()
+                if skipWhileCheck1 isOct stream
+                then parseInt stream
+                else replyFatalError (expected "oct digits")
+            | '0', 'b' ->
+                c <- stream.SkipAndPeek()
+                if skipWhileCheck1 isBin stream
+                then parseInt stream
+                else replyFatalError (expected "binary digits")
+            | _ -> 
+                let hasIntegerPart = skipWhileCheck1 isDec stream
+                match c with 
+                | '.' when hasIntegerPart -> 
+                    c <- stream.SkipAndPeek()
+                    if skipWhileCheck1 isDec stream then
+                        match c with
+                        | 'e' | 'E' -> parseExpPart stream
+                        | _ ->
+                            let r = stream.ReadFrom(index0)
+                            Reply(RonValue.Float(float r))
+                    else
+                        let r = stream.ReadFrom(index0)
+                        Reply(RonValue.Float(float r))
+                | '.' when not hasIntegerPart -> 
+                    c <- stream.SkipAndPeek()
+                    if skipWhileCheck1 isDec stream then
+                        match c with
+                        | 'e' | 'E' -> parseExpPart stream
+                        | _ ->
+                            let r = stream.ReadFrom(index0)
+                            Reply(RonValue.Float(float r))
+                    else
+                        let r = stream.ReadFrom(index0)
+                        Reply(RonValue.Float(float r))
+                | _ when hasIntegerPart ->
+                    c <- stream.SkipAndPeek()
+                    parseInt stream
+                | _ ->
+                    replyError (expected "Number (digit | . | + | -)")
+    
+    
     let floatR = floatP |>> RonValue.Float
     
     // ----------------
@@ -296,15 +412,18 @@ module Grammar =
     
     // value = unsigned | signed | float | string | char | bool | option | list | map | tuple | struct | enum_variant;
     do valueRef := choice [
-        floatR
-        unsigned' |>> (int >> RonValue.Integer)
-        signed' |>> (int >> RonValue.Integer)
+        numberR
+
         stringR
         charR
         boolR
         anyStructR
         listR
         mapR
+        
+        floatR
+        unsigned' |>> (int >> RonValue.Integer)
+        signed' |>> (int >> RonValue.Integer)
     ]
     
     // ----------------
