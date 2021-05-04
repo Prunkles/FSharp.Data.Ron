@@ -1,6 +1,6 @@
 # FSharp.Data.Ron
 
-F# [RON](https://github.com/ron-rs/ron) parsing library.
+F# [Rusty Object Notation](https://github.com/ron-rs/ron) parsing library.
 
 
 ## Decoding
