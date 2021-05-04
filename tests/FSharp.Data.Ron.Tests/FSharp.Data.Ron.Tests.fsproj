@@ -16,7 +16,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\FSharp.Data.Ron\FSharp.Data.Ron.fsproj" />
+      <ProjectReference Include="..\..\src\FSharp.Data.Ron\FSharp.Data.Ron.fsproj" />
     </ItemGroup>
 
     <ItemGroup>
