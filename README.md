@@ -23,6 +23,9 @@ val it : Result<int, DecodeError> = Ok 32
 
 > Decode.fromString "\"foo\"" Decode.string
 val it : Result<string, DecodeError> = Ok "foo"
+
+> Decode.fromString """Person(name: "Ron", age: 24)""" (Decode.field "name" Decode.string)
+val it : Result<string, DecodeError> = Ok "Ron"
 ```
 
 ### Builder style
