@@ -10,6 +10,7 @@
         <Compile Include="Parsing\Numbers.fs" />
         <Compile Include="Parsing\Floats.fs" />
         <Compile Include="Parsing\Comments.fs" />
+        <Compile Include="Parsing\Values.fs" />
         <Compile Include="Samples\Sample1.fs" />
         <Compile Include="Samples\Sample2.fs" />
         <Compile Include="Program.fs" />
