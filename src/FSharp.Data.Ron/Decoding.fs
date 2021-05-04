@@ -101,8 +101,6 @@ module Decode =
             )
         | _ -> Error (DecodeError.Decode "Not a map")
     
-    let (|Equals|_|) x y = if x = y then Some () else None
-    
     let field name (decoder: Decoder<'a>) : Decoder<'a> = function
         | RonValue.AnyStruct (AnyStruct.StructNamed (_, content)) ->
             let r = content |> Seq.tryPick (fun (name', value') -> if name' = name then Some value' else None)
