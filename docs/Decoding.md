@@ -12,10 +12,10 @@ open FSharp.Data.Ron.Decoding
 
 ```f#
 > Decode.fromString "32" Decode.int
-val it : int = Ok 32
+val it : Result<int, DecodeError> = Ok 32
 
 > Decode.fromString "\"foo\"" Decode.string
-val it : int = Ok "foo"
+val it : Result<int, DecodeError> = Ok "foo"
 ```
 
 ## Builder style
