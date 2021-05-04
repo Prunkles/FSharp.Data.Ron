@@ -6,24 +6,49 @@ open FSharp.Data.Ron
 open FSharp.Data.Ron.Decoding
 open FSharp.Data.Ron.Tests
 
-[<Tests>]
+module Expect =
+    
+    let equalFloats actual expected message =
+        let (|IsNaN|_|) = function f when Double.IsNaN(f) -> Some () | _ -> None
+        match actual, expected with
+        | IsNaN, IsNaN ->
+            let x = "NaN (fictive)"
+            Expect.equal x x message
+        | actual, expected -> Expect.equal actual expected message
+
+    let equalResult equalOk actual expected message =
+        match actual, expected with
+        | Ok actual, Ok expected -> equalOk actual expected message
+        | actual, expected -> Expect.equal actual expected message
+
+
+//[<Tests>]
 let tests = testList "Parse floats" [
     test "Parse 'inf'" {
-        Expect.equal (Decode.fromString "inf" Decode.float) (Ok infinity) ""
+        let input = "inf"
+        Expect.equalResult Expect.equalFloats (Decode.fromString input Decode.float) (Ok infinity) ""
     }
     test "Parse '-inf'" {
-        Expect.equal (Decode.fromString "-inf" Decode.float) (Ok Double.NegativeInfinity) ""
+        let input = "-inf"
+        Expect.equalResult Expect.equalFloats (Decode.fromString input Decode.float) (Ok Double.NegativeInfinity) ""
     }
     test "Parse 'NaN'" {
-        Expect.equal (Decode.fromString "NaN" Decode.float) (Ok nan) "" // TODO: NaN inequality
+        let input = "NaN"
+        Expect.equalResult Expect.equalFloats (Decode.fromString input Decode.float) (Ok nan) "'NaN' isn't parsed"
     }
-    testProperty "Parse '0.0' float" <| fun (f: float) ->
-        let input = f.ToString("f")
-        Expect.equal (Decode.fromString input Decode.float) (Ok f) ""
-    testProperty "Parse '0.0E0' float" <| fun (f: float) ->
-        let input = f.ToString("E")
-        Expect.equal (Decode.fromString input Decode.float) (Ok f) ""
-//    testProperty "Parse 'x.x' float" <| fun (f: float) ->
-//        let input = string f
-//        Expect.equal (Parsing.parseValue input) (Ok (RonValue.Float f)) ""
+    testProperty "Parse '0.0' format float" <| fun (f: float) ->
+        let input =
+            match f with
+            | f when Double.IsPositiveInfinity(f) -> "inf"
+            | f when Double.IsNegativeInfinity(f) -> "-inf"
+            | f -> f.ToString("f400")
+        Expect.equalResult Expect.equalFloats (Decode.fromString input Decode.float) (Ok f) ""
+    testProperty "Parse '0.0E0' format float" <| fun (f: float) ->
+        let input =
+            match f with
+            | f when Double.IsPositiveInfinity(f) -> "inf"
+            | f when Double.IsNegativeInfinity(f) -> "-inf"
+            | f -> f.ToString("E17")
+        
+        Expect.equalResult Expect.equalFloats (Decode.fromString input Decode.float) (Ok f) ""
 ]

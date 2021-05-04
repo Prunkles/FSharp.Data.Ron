@@ -8,7 +8,17 @@ module Grammar =
 
     open System.Text
     
-    let valueR, valueRef = createParserForwardedToRef<RonValue, unit> ()
+    
+    
+    let mapUserState (mapping: 'v -> 'u) (p: Parser<_, 'u>) : Parser<_, 'v> =
+        fun streamV ->
+            let userStateV = streamV.UserState
+            let userStateU = mapping userStateV
+            let streamU = streamV.CreateSubstream<'u>(streamV.State)
+            streamU.UserState <- userStateU
+            p streamU
+    
+    let valueR, valueRef = createParserForwardedToRef<RonValue, _> ()
     
     let ident =
         let isAsciiIdStart c = isAsciiLetter c || c = '_'
@@ -28,19 +38,40 @@ module Grammar =
     
     // comment = ["//", { no_newline }, "\n"] | ["/*", { ? any character ? }, "*/"];
     let comment =
-        let singleline = pstring "//" >>. manySatisfy (fun c -> c <> '\n') >>. pchar '\n'
-        let multiline = between (pstring "/*") (pstring "*/") (charsTillString "*/" false Int32.MaxValue)
-        (singleline >>% ()) <|> (multiline >>% ())
+        let singleline = pstring "//" >>. manyChars (noneOf "\n") .>> pchar '\n' <?> "SingleLineComment"
+        let multiline =
+            let p: Parser<_, _> = fun stream ->
+                let sb = StringBuilder()
+                if stream.PeekString(2) <> "/*" then
+                    Reply(Error, NoErrorMessages)
+                else
+                    stream.Skip(2)
+                    let mutable deep = 1
+                    while deep > 0 && (stream.Peek() <> Char.MaxValue) do
+                        let next = stream.PeekString(2)
+                        match next with
+                        | "/*" -> deep <- deep + 1
+                        | "*/" -> deep <- deep - 1
+                        | _ -> ()
+                        sb.Append(stream.Read()) |> ignore
+                    
+                    if deep > 0 then
+                        Reply(FatalError, expected "closing */")
+                    else
+                        stream.Skip(1)
+                        Reply(sb.ToString())
+            p <?> "MultilineComment"
+        singleline <|> multiline
     
     // ws = { ws_single, comment };
-    let ws = skipMany ((ws_single >>% ()) <|> comment)
+    let ws = skipMany ((ws_single >>% ()) <|> (comment >>% ())) <?> "whitespace"
     
     // ----------------
     // Commas
     // ----------------
     
     // comma = ws, ",", ws;
-    let comma = ws >>. pchar ',' .>> ws
+    let comma = ws >>? pchar ',' .>> ws
     
     // ----------------
     // Extensions
@@ -56,7 +87,13 @@ module Grammar =
     
     // extensions = { "#", ws, "!", ws, "[", ws, extensions_inner, ws, "]", ws };
     let extensions =
-        many (pchar '#' >>. ws >>. pchar '!' >>. ws >>. pchar '[' >>. ws >>. extensions_inner .>> ws .>> pchar ']' .>> ws)
+        let extension =
+            pchar '#' >>. ws
+            >>. pchar '!' >>. ws
+            >>. pchar '[' >>. ws
+            >>. extensions_inner .>> ws
+            .>> pchar ']'
+        many (extension .>> ws)
         |>> List.concat
     
     // ----------------
@@ -89,24 +126,33 @@ module Grammar =
     
     // float_exp = ("e" | "E"), digit, {digit};
     let float_exp =
-        anyOf "eE" .>>. many1 digit
-        |>> fun (c0, cs) -> string c0 + String.Concat(cs)
+        anyOf "eE" .>>. opt sign .>>. many1Chars digit
+        |>> fun ((c0, c1o), s9) -> string c0 + (match c1o with Some c -> string c | _ -> "") + s9
     
     // float_std = ["+" | "-"], digit, { digit }, ".", {digit}, [float_exp];
     let float_std =
-        opt sign .>>.? many1 digit .>>.? pchar '.' .>>. many digit .>>. opt float_exp
-        |>> fun ((((c5o, c6s), c7), c8s), s9o) ->
-            (match c5o with Some c -> string c | _ -> "") + String.Concat(c6s) + string c7 + String.Concat(c8s) + (Option.defaultValue "" s9o)
+        let p = opt sign .>>.? many1Chars digit .>>.? pchar '.' .>>. manyChars digit .>>. opt float_exp
+        p
+        |>> fun ((((c5o, s6), c7), s8), s9o) ->
+            (match c5o with Some c -> string c | _ -> "") + s6 + string c7 + s8 + (defaultArg s9o "")
     
     // float_frac = ".", digit, {digit}, [float_exp];
     let float_frac =
-        pchar '.' .>>. many1 digit .>>. opt float_exp
-        |>> fun ((c0, c1s), s2o) -> string c0 + String.Join("", c1s) + (defaultArg s2o "")
+        pchar '.' .>>. many1Chars digit .>>. opt float_exp
+        |>> fun ((c0, s1), s2o) -> string c0 + s1 + (defaultArg s2o "")
+    
+    let float_signed_inf =
+        sign .>>.? pstring "inf"
+        |>> function
+            | '+', _ -> Double.PositiveInfinity
+            | '-', _ -> Double.NegativeInfinity
+            | _ -> invalidOp "Unreachable"
     
     // float = float_std | float_frac;
     let floatP =
-        float_std <|> float_frac
-        |>> float
+        (float_std |>> float)
+        <|> (float_frac |>> float)
+        <|> float_signed_inf
         <?> "Float"
     
     let floatR = floatP |>> RonValue.Float
@@ -153,10 +199,9 @@ module Grammar =
     
     // string_std = "\"", { no_double_quotation_marks | string_escape }, "\"";
     let string_std =
-        let no_double_quotation_marks = noneOf ['"'] |>> string
+        let no_double_quotation_marks = noneOf "\"" |>> string
         between (pchar '"') (pchar '"')
-            (many (no_double_quotation_marks <|> string_escape))
-        |>> fun ss -> String.Join("", ss)
+            (manyStrings (no_double_quotation_marks <|> string_escape))
     
     // string = string_std | string_raw;
     let string' =
@@ -188,12 +233,12 @@ module Grammar =
     
     let boolR = bool' |>> RonValue.Boolean
     
-    // ----------------
-    // Optional
-    // ----------------
-    
-    // option = "Some", ws, "(", ws, value, ws, ")";
-    let option' = pstring "Some" >>. ws >>. pchar '(' >>. ws >>. valueR .>> ws .>> pchar ')'
+//    // ----------------
+//    // Optional
+//    // ----------------
+//    
+//    // option = "Some", ws, "(", ws, value, ws, ")";
+//    let option' = pstring "Some" >>. ws >>. pchar '(' >>. ws >>. valueR .>> ws .>> pchar ')'
     
     // ----------------
     // List
@@ -225,22 +270,22 @@ module Grammar =
     // ----------------
     
     // named_field = ident, ws, ":", value;
-    let named_field = ident .>> ws .>> pchar ':' .>> ws .>>. valueR
+    let named_field = ident .>> ws .>>? pchar ':' .>> ws .>>. valueR
     
     let anyStruct =
-        let unitContent = pchar '(' >>? ws >>? pchar ')' >>% ()
-        let namedContent = pchar '(' >>? (ws >>? sepEndBy1 (named_field .>>? ws) comma) .>> pchar ')'
-        let unnamedContent = pchar '(' >>? (ws >>? sepEndBy1 (valueR .>>? ws) comma) .>> pchar ')'
+        let unitContent    = pchar '(' >>? ws >>? pchar ')' >>% ()
+        let namedContent   = pchar '(' >>? (ws >>? sepEndBy1 (named_field .>>? ws) comma) .>> pchar ')'
+        let unnamedContent = pchar '(' >>? (ws >>? sepEndBy1 (valueR      .>>? ws) comma) .>> pchar ')'
         
-        let tagStruct = ident
-        let unitStruct = opt ident .>>? unitContent
-        let namedStruct = opt ident .>>.? namedContent
-        let unnamedStruct = opt ident .>>.? unnamedContent
+        let unitStruct    = unitContent
+        let taggedStruct  =     ident .>>? ws .>>.? (opt unitContent |>> Option.isSome)
+        let namedStruct   = opt ident .>>? ws .>>.? namedContent
+        let unnamedStruct = opt ident .>>? ws .>>.? unnamedContent
         choice [
-            unitStruct |>> AnyStruct.Unit
-            namedStruct |>> AnyStruct.Named
+            unitStruct    |>> fun () -> AnyStruct.Unit
+            namedStruct   |>> AnyStruct.Named
             unnamedStruct |>> AnyStruct.Unnamed
-            tagStruct |>> AnyStruct.Tag
+            taggedStruct  |>> AnyStruct.Tagged
         ]
     
     let anyStructR = anyStruct |>> RonValue.AnyStruct
@@ -257,7 +302,6 @@ module Grammar =
         stringR
         charR
         boolR
-        option'
         anyStructR
         listR
         mapR
@@ -271,13 +315,14 @@ module Grammar =
     let RON =
         ws >>. opt extensions .>> ws .>>. valueR .>> ws .>> eof
         |>> function e, v -> (match e with None -> [] | Some es -> es), v
-//        ws >>. valueR .>> ws .>> eof
+
 
 type RonFile =
     { Extensions: string list
       Value: RonValue }
 
 let parse input =
-    match run Grammar.RON input with
+    let result = runParserOnString Grammar.RON () "" input
+    match result with
     | Success ((exts, value), _, _) -> Result.Ok { Extensions = exts; Value = value }
     | Failure (errorMsg, _, _) -> Result.Error errorMsg

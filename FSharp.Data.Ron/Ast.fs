@@ -12,9 +12,17 @@ A(b: c)
 
 type [<RequireQualifiedAccess>]
     AnyStruct =
-    | Tag of tag: string
-    | Unit of tag: string option
+//    /// T
+//    | Tag of tag: string
+//    /// T() | ()
+//    | Unit of tag: string option
+    /// ()
+    | Unit
+    /// T() | T
+    | Tagged of tag: string * hasBraces: bool
+    /// T?(n: v)
     | Named of tag: string option * content: (string * RonValue) list
+    /// T?(v)
     | Unnamed of tag: string option * content: RonValue list
 
 and [<RequireQualifiedAccess>]
@@ -34,8 +42,8 @@ module AnyStruct =
     
     // () | T | T()
     let (|StructUnit|_|) = function
-        | AnyStruct.Unit tag -> Some tag
-        | AnyStruct.Tag tag -> Some (Some tag)
+        | AnyStruct.Unit -> Some None
+        | AnyStruct.Tagged (tag, _) -> Some (Some tag)
         | _ -> None
     
     // T(v) | (v)
@@ -68,6 +76,10 @@ module AnyStruct =
     // (v)
     let (|Tuple|_|) = function
         | StructTuple (None, content) -> Some content
+        | _ -> None
+    
+    let (|GetTag|_|) = function
+        | EnumUnit name | EnumTuple (name, _) | EnumNamed (name, _) -> Some name
         | _ -> None
     
 //    // T | () | T()

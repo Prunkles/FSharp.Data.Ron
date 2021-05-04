@@ -41,8 +41,10 @@ let print (value: RonValue) : string =
         | RonValue.AnyStruct s ->
             let sprintTag = function Some t -> t | None -> ""
             match s with
-            | AnyStruct.Tag tag -> printf $"%s{tag}"
-            | AnyStruct.Unit tag -> printf $"{sprintTag tag}()"
+            | AnyStruct.Unit -> printf "()"
+            | AnyStruct.Tagged (tag, hasBraces) ->
+                let braces = if hasBraces then "()" else ""
+                printf $"%s{tag}{braces}"
             | AnyStruct.Unnamed (tag, content) ->
                 printf $"{sprintTag tag}"
                 printf "("
