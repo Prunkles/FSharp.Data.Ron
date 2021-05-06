@@ -155,14 +155,11 @@ module Grammar =
                 else 
                     replyFatalError (expected "exponent power")
             
-            // parse after '.' : '0.{not req digits}' '.{req digits}'
+            // parse after '.' : '0.{not req digits}[e{digits}]' '.{req digits}[e{digits}]'
             let inline parseFractionalPart (reqFractionalDigits: bool) =
-                if isE c then
-                    replyFatalError (unexpected "exponent syntax")
-                else
                 let hasDigits = skipAndPeekWhile1 isDigit
-                if reqFractionalDigits && (not hasDigits) then
-                    replyFatalError (expected "fractional part")
+                if (not hasDigits) && reqFractionalDigits then
+                    replyFatalError (expected "fractional digits")
                 else
                 if isE c then
                     c <- stream.SkipAndPeek()

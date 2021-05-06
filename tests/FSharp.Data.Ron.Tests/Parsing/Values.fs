@@ -64,9 +64,12 @@ let tests = testList "Values" [
         for s, el, es in allTriplets [""; "+"; "-"] ["e"; "E"] [""; "+"; "-"] do
             expectFloatFromString $"{s}314{el}{es}2" ""
         
+        // float only integer, dot and exp
+        for s, el, es in allTriplets [""; "+"; "-"] ["e"; "E"] [""; "+"; "-"] do
+            expectFloatFromString $"{s}314.{el}{es}2" ""
+        
         // float invalid exponent
         for s, el, es in allTriplets [""; "+"; "-"] ["e"; "E"] [""; "+"; "-"] do
-            expectError $"{s}3.{el}{es}4" ""
             expectError $"{s}.{el}{es}4" ""
     }
     test "string" {
