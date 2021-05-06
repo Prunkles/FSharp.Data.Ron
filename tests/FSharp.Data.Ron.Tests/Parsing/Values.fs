@@ -30,18 +30,129 @@ let tests = testList "Values" [
         expectValue "{ 'a': 1, 'b': 2.0 }" (RonValue.Map map) ""
     }
     test "number" {
+        // integer
         expectValue "42" (RonValue.Integer 42) ""
+        expectValue "0x4f" (RonValue.Integer 0x4f) ""
+        expectValue "0o47" (RonValue.Integer 0o47) ""
+        expectValue "0b101" (RonValue.Integer 0b101) ""
+        
+        // float regular
         expectValue "3.1415" (RonValue.Float 3.1415) ""
+        expectValue "+3.1415" (RonValue.Float 3.1415) ""
         expectValue "-3.1415" (RonValue.Float -3.1415) ""
+        
+        // float regular exp
+        expectValue "0.031415e2" (RonValue.Float 3.1415) ""
+        expectValue "0.031415E2" (RonValue.Float 3.1415) ""
+        expectValue "+0.031415e2" (RonValue.Float 3.1415) ""
+        expectValue "+0.031415E2" (RonValue.Float 3.1415) ""
+        expectValue "-0.031415e2" (RonValue.Float -3.1415) ""
+        expectValue "-0.031415E2" (RonValue.Float -3.1415) ""
+        
+        expectValue "0.031415e+2" (RonValue.Float 3.1415) ""
+        expectValue "0.031415E+2" (RonValue.Float 3.1415) ""
+        expectValue "+0.031415e+2" (RonValue.Float 3.1415) ""
+        expectValue "+0.031415E+2" (RonValue.Float 3.1415) ""
+        expectValue "-0.031415e+2" (RonValue.Float -3.1415) ""
+        expectValue "-0.031415E+2" (RonValue.Float -3.1415) ""
+        
         expectValue "314.15e-2" (RonValue.Float 3.1415) ""
         expectValue "314.15E-2" (RonValue.Float 3.1415) ""
-        expectError "3.e2" ""
-        expectError "3.E2" ""
+        expectValue "+314.15e-2" (RonValue.Float 3.1415) ""
+        expectValue "+314.15E-2" (RonValue.Float 3.1415) ""
+        expectValue "-314.15e-2" (RonValue.Float -3.1415) ""
+        expectValue "-314.15E-2" (RonValue.Float -3.1415) ""
+        
+        // float no integer part
         expectValue ".31415" (RonValue.Float 0.31415) ""
+        expectValue "+.31415" (RonValue.Float 0.31415) ""
+        expectValue "-.31415" (RonValue.Float -0.31415) ""
+        
         expectValue ".31415e1" (RonValue.Float 3.1415) ""
         expectValue ".31415E1" (RonValue.Float 3.1415) ""
+        expectValue "+.31415e1" (RonValue.Float 3.1415) ""
+        expectValue "+.31415E1" (RonValue.Float 3.1415) ""
+        expectValue "-.31415e1" (RonValue.Float -3.1415) ""
+        expectValue "-.31415E1" (RonValue.Float -3.1415) ""
+        
+        expectValue ".31415e+1" (RonValue.Float 3.1415) ""
+        expectValue ".31415E+1" (RonValue.Float 3.1415) ""
+        expectValue "+.31415e+1" (RonValue.Float 3.1415) ""
+        expectValue "+.31415E+1" (RonValue.Float 3.1415) ""
+        expectValue "-.31415e+1" (RonValue.Float -3.1415) ""
+        expectValue "-.31415E+1" (RonValue.Float -3.1415) ""
+        
+        expectValue ".31415e-1" (RonValue.Float 0.031415) ""
+        expectValue ".31415E-1" (RonValue.Float 0.031415) ""
+        expectValue "+.31415e-1" (RonValue.Float 0.031415) ""
+        expectValue "+.31415E-1" (RonValue.Float 0.031415) ""
+        expectValue "-.31415e-1" (RonValue.Float -0.031415) ""
+        expectValue "-.31415E-1" (RonValue.Float -0.031415) ""
+        
+        // float only integer and exp
+        expectValue "3e2" (RonValue.Float 300.0) ""
+        expectValue "3E2" (RonValue.Float 300.0) ""
+        expectValue "+3e2" (RonValue.Float 300.0) ""
+        expectValue "+3E2" (RonValue.Float 300.0) ""
+        expectValue "-3e2" (RonValue.Float -300.0) ""
+        expectValue "-3E2" (RonValue.Float -300.0) ""
+        
+        expectValue "3e+2" (RonValue.Float 300.0) ""
+        expectValue "3E+2" (RonValue.Float 300.0) ""
+        expectValue "+3e+2" (RonValue.Float 300.0) ""
+        expectValue "+3E+2" (RonValue.Float 300.0) ""
+        expectValue "-3e+2" (RonValue.Float -300.0) ""
+        expectValue "-3E+2" (RonValue.Float -300.0) ""
+        
+        expectValue "3e-2" (RonValue.Float 0.03) ""
+        expectValue "3E-2" (RonValue.Float 0.03) ""
+        expectValue "+3e-2" (RonValue.Float 0.03) ""
+        expectValue "+3E-2" (RonValue.Float 0.03) ""
+        expectValue "-3e-2" (RonValue.Float -0.03) ""
+        expectValue "-3E-2" (RonValue.Float -0.03) ""
+        
+        // float invalid exponent
+        expectError "3.e2" ""
+        expectError "3.E2" ""
+        expectError "3.e2" ""
+        expectError "3.E2" ""
+        expectError "3.e2" ""
+        expectError "3.E2" ""
+        
+        expectError "+3.e+2" ""
+        expectError "+3.E+2" ""
+        expectError "+3.e+2" ""
+        expectError "+3.E+2" ""
+        expectError "+3.e+2" ""
+        expectError "+3.E+2" ""
+        
+        expectError "-3.e-2" ""
+        expectError "-3.E-2" ""
+        expectError "-3.e-2" ""
+        expectError "-3.E-2" ""
+        expectError "-3.e-2" ""
+        expectError "-3.E-2" ""
+        
         expectError ".e2" ""
         expectError ".E2" ""
+        expectError ".e2" ""
+        expectError ".E2" ""
+        expectError ".e2" ""
+        expectError ".E2" ""
+        
+        expectError "+.e+2" ""
+        expectError "+.E+2" ""
+        expectError "+.e+2" ""
+        expectError "+.E+2" ""
+        expectError "+.e+2" ""
+        expectError "+.E+2" ""
+        
+        expectError "-.e-2" ""
+        expectError "-.E-2" ""
+        expectError "-.e-2" ""
+        expectError "-.E-2" ""
+        expectError "-.e-2" ""
+        expectError "-.E-2" ""
     }
     test "string" {
         let normal = "\"String\""
