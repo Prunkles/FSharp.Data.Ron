@@ -155,10 +155,16 @@ module Grammar =
         <|> float_signed_inf
         <?> "Float"
     
+    type NumberType =
+        | Integer = 0
+        | Float = 1
     
+    [<Struct>]
+    type ParsedNumber =
+        { Data: string
+          Type: NumberType }
     
-    let numberR: Parser<_,_> =
-            
+    let nonSpecialNumberP: Parser<ParsedNumber,_> =
         fun stream -> 
             // # Store state
             let index0 = stream.IndexToken
@@ -177,7 +183,7 @@ module Grammar =
 //                while cond c do c <- stream.SkipAndPeek()
             
             // return true if skip 1 or more
-            let inline skipWhileCheck1 (cond: char -> bool) (stream: CharStream<_>) =
+            let inline skipAndPeekWhile1 (cond: char -> bool) (stream: CharStream<_>) =
                 let skip1 = cond c
                 if skip1 then
                     c <- stream.SkipAndPeek()
@@ -186,19 +192,9 @@ module Grammar =
                 else
                     false
             
-            // # impl
-            
-            // check sign first
-            if isSign c then
-                isSigned <- true
-                c <- stream.SkipAndPeek() 
-            
-            let inline parseInt (stream: CharStream<_>) =
+            let inline replyRepr (ty: NumberType) =
                 let r = stream.ReadFrom(index0)
-                
-                match isSigned with
-                | true -> Reply(RonValue.Integer(int r))
-                | false -> Reply(RonValue.Integer(int r))
+                Reply({ParsedNumber.Data = r; ParsedNumber.Type = ty})
             
             let inline replyError err =
                 stream.Seek(index0)
@@ -208,69 +204,85 @@ module Grammar =
             let inline replyFatalError err =
                 Reply(Error, err)
             
+            // # impl
+            
+            // parse after 'e' : '0.3e{}' '.3e{}'
             let inline parseExpPart (stream: CharStream<_>) =
                 if c = '-' || c = '+' then
                     c <- stream.SkipAndPeek()
-                if skipWhileCheck1 isDec stream then
-                    let r = stream.ReadFrom(index0)
-                    Reply(RonValue.Float (float r))
+                if skipAndPeekWhile1 isDec stream then
+                    replyRepr NumberType.Float
                 else 
                     replyFatalError (expected "exponent power")
             
+            // parse after '.' : '0.{not req digits}' '.{req digits}'
+            let inline parseFractionalPart (reqFractionalDigits: bool) =
+                if c = 'e' || c = 'E' then
+                    replyFatalError (unexpected "exponent syntax")
+                else
+                let hasDigits = skipAndPeekWhile1 isDec stream
+                if reqFractionalDigits && (not hasDigits) then
+                    replyFatalError (expected "fractional part")
+                else
+                if c = 'e' || c = 'E' then
+                    c <- stream.SkipAndPeek()
+                    parseExpPart stream
+                else
+                    replyRepr NumberType.Float
+                
+            // # parsing
+            // check sign first
+            if isSign c then
+                isSigned <- true
+                c <- stream.SkipAndPeek()
+            
             // check 0x | 0b | 0o prefixes
-            
-            let c0, c1 =
-                let two = stream.Peek2()
-                two.Char0, two.Char1
-            
+            let c0, c1 = let two = stream.Peek2() in two.Char0, two.Char1
             match c0, c1 with
             | '0', 'x' ->
                 c <- stream.SkipAndPeek()
-                if skipWhileCheck1 isHex stream
-                then parseInt stream
+                c <- stream.SkipAndPeek()
+                if skipAndPeekWhile1 isHex stream
+                then replyRepr NumberType.Integer
                 else replyFatalError (expected "hex digits")
             | '0', 'o' ->
                 c <- stream.SkipAndPeek()
-                if skipWhileCheck1 isOct stream
-                then parseInt stream
+                c <- stream.SkipAndPeek()
+                if skipAndPeekWhile1 isOct stream
+                then replyRepr NumberType.Integer
                 else replyFatalError (expected "oct digits")
             | '0', 'b' ->
                 c <- stream.SkipAndPeek()
-                if skipWhileCheck1 isBin stream
-                then parseInt stream
+                c <- stream.SkipAndPeek()
+                if skipAndPeekWhile1 isBin stream
+                then replyRepr NumberType.Integer
                 else replyFatalError (expected "binary digits")
             | _ -> 
-                let hasIntegerPart = skipWhileCheck1 isDec stream
+                let hasIntegerPart = skipAndPeekWhile1 isDec stream
                 match c with 
                 | '.' when hasIntegerPart -> 
                     c <- stream.SkipAndPeek()
-                    if skipWhileCheck1 isDec stream then
-                        match c with
-                        | 'e' | 'E' -> parseExpPart stream
-                        | _ ->
-                            let r = stream.ReadFrom(index0)
-                            Reply(RonValue.Float(float r))
-                    else
-                        let r = stream.ReadFrom(index0)
-                        Reply(RonValue.Float(float r))
+                    parseFractionalPart false
                 | '.' when not hasIntegerPart -> 
                     c <- stream.SkipAndPeek()
-                    if skipWhileCheck1 isDec stream then
-                        match c with
-                        | 'e' | 'E' -> parseExpPart stream
-                        | _ ->
-                            let r = stream.ReadFrom(index0)
-                            Reply(RonValue.Float(float r))
-                    else
-                        let r = stream.ReadFrom(index0)
-                        Reply(RonValue.Float(float r))
+                    parseFractionalPart true
                 | _ when hasIntegerPart ->
-                    c <- stream.SkipAndPeek()
-                    parseInt stream
+                    replyRepr NumberType.Integer
                 | _ ->
                     replyError (expected "Number (digit | . | + | -)")
     
-    
+    let numberR =
+        nonSpecialNumberP
+        |>> fun pNum ->
+            match pNum.Type with
+            | NumberType.Integer ->
+                printfn "\t>>>\tParse integer %s" pNum.Data
+                int pNum.Data |> RonValue.Integer
+            | NumberType.Float ->
+                printfn "\t>>>\tParse float %s" pNum.Data
+                float pNum.Data |> RonValue.Float
+            | _ -> ArgumentOutOfRangeException() |> raise
+
     let floatR = floatP |>> RonValue.Float
     
     // ----------------
