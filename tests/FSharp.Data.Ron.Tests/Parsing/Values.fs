@@ -12,6 +12,14 @@ let expectValue input expected message =
 let expectError input message =
     Expect.isError (Parsing.parseValue input) message
 
+let allTriplets s1 s2 s3 =
+    seq { for e1 in s1 do for e2 in s2 do for e3 in s3 do yield (e1, e2, e3) }
+
+let expectFloat source expected msg = expectValue source (RonValue.Float expected) msg
+
+let expectFloatFromString source msg =
+    let expected = float source
+    expectFloat source expected msg
 
 [<Tests>]
 let tests = testList "Values" [
@@ -37,122 +45,29 @@ let tests = testList "Values" [
         expectValue "0b101" (RonValue.Integer 0b101) ""
         
         // float regular
-        expectValue "3.1415" (RonValue.Float 3.1415) ""
-        expectValue "+3.1415" (RonValue.Float 3.1415) ""
-        expectValue "-3.1415" (RonValue.Float -3.1415) ""
+        for s in [""; "+"; "-"] do
+            expectFloatFromString $"{s}3.1415" ""
         
         // float regular exp
-        expectValue "0.031415e2" (RonValue.Float 3.1415) ""
-        expectValue "0.031415E2" (RonValue.Float 3.1415) ""
-        expectValue "+0.031415e2" (RonValue.Float 3.1415) ""
-        expectValue "+0.031415E2" (RonValue.Float 3.1415) ""
-        expectValue "-0.031415e2" (RonValue.Float -3.1415) ""
-        expectValue "-0.031415E2" (RonValue.Float -3.1415) ""
-        
-        expectValue "0.031415e+2" (RonValue.Float 3.1415) ""
-        expectValue "0.031415E+2" (RonValue.Float 3.1415) ""
-        expectValue "+0.031415e+2" (RonValue.Float 3.1415) ""
-        expectValue "+0.031415E+2" (RonValue.Float 3.1415) ""
-        expectValue "-0.031415e+2" (RonValue.Float -3.1415) ""
-        expectValue "-0.031415E+2" (RonValue.Float -3.1415) ""
-        
-        expectValue "314.15e-2" (RonValue.Float 3.1415) ""
-        expectValue "314.15E-2" (RonValue.Float 3.1415) ""
-        expectValue "+314.15e-2" (RonValue.Float 3.1415) ""
-        expectValue "+314.15E-2" (RonValue.Float 3.1415) ""
-        expectValue "-314.15e-2" (RonValue.Float -3.1415) ""
-        expectValue "-314.15E-2" (RonValue.Float -3.1415) ""
+        for s, el, es in allTriplets [""; "+"; "-"] ["e"; "E"] [""; "+"; "-"] do
+            expectFloatFromString $"{s}3.1415{el}{es}4" ""
         
         // float no integer part
-        expectValue ".31415" (RonValue.Float 0.31415) ""
-        expectValue "+.31415" (RonValue.Float 0.31415) ""
-        expectValue "-.31415" (RonValue.Float -0.31415) ""
+        for s in [""; "+"; "-"] do
+            expectFloatFromString $"{s}.31415" ""
         
-        expectValue ".31415e1" (RonValue.Float 3.1415) ""
-        expectValue ".31415E1" (RonValue.Float 3.1415) ""
-        expectValue "+.31415e1" (RonValue.Float 3.1415) ""
-        expectValue "+.31415E1" (RonValue.Float 3.1415) ""
-        expectValue "-.31415e1" (RonValue.Float -3.1415) ""
-        expectValue "-.31415E1" (RonValue.Float -3.1415) ""
-        
-        expectValue ".31415e+1" (RonValue.Float 3.1415) ""
-        expectValue ".31415E+1" (RonValue.Float 3.1415) ""
-        expectValue "+.31415e+1" (RonValue.Float 3.1415) ""
-        expectValue "+.31415E+1" (RonValue.Float 3.1415) ""
-        expectValue "-.31415e+1" (RonValue.Float -3.1415) ""
-        expectValue "-.31415E+1" (RonValue.Float -3.1415) ""
-        
-        expectValue ".31415e-1" (RonValue.Float 0.031415) ""
-        expectValue ".31415E-1" (RonValue.Float 0.031415) ""
-        expectValue "+.31415e-1" (RonValue.Float 0.031415) ""
-        expectValue "+.31415E-1" (RonValue.Float 0.031415) ""
-        expectValue "-.31415e-1" (RonValue.Float -0.031415) ""
-        expectValue "-.31415E-1" (RonValue.Float -0.031415) ""
+        // float no integer part with exp
+        for s, el, es in allTriplets [""; "+"; "-"] ["e"; "E"] [""; "+"; "-"] do
+            expectFloatFromString $"{s}.1415{el}{es}3" ""
         
         // float only integer and exp
-        expectValue "3e2" (RonValue.Float 300.0) ""
-        expectValue "3E2" (RonValue.Float 300.0) ""
-        expectValue "+3e2" (RonValue.Float 300.0) ""
-        expectValue "+3E2" (RonValue.Float 300.0) ""
-        expectValue "-3e2" (RonValue.Float -300.0) ""
-        expectValue "-3E2" (RonValue.Float -300.0) ""
-        
-        expectValue "3e+2" (RonValue.Float 300.0) ""
-        expectValue "3E+2" (RonValue.Float 300.0) ""
-        expectValue "+3e+2" (RonValue.Float 300.0) ""
-        expectValue "+3E+2" (RonValue.Float 300.0) ""
-        expectValue "-3e+2" (RonValue.Float -300.0) ""
-        expectValue "-3E+2" (RonValue.Float -300.0) ""
-        
-        expectValue "3e-2" (RonValue.Float 0.03) ""
-        expectValue "3E-2" (RonValue.Float 0.03) ""
-        expectValue "+3e-2" (RonValue.Float 0.03) ""
-        expectValue "+3E-2" (RonValue.Float 0.03) ""
-        expectValue "-3e-2" (RonValue.Float -0.03) ""
-        expectValue "-3E-2" (RonValue.Float -0.03) ""
+        for s, el, es in allTriplets [""; "+"; "-"] ["e"; "E"] [""; "+"; "-"] do
+            expectFloatFromString $"{s}314{el}{es}2" ""
         
         // float invalid exponent
-        expectError "3.e2" ""
-        expectError "3.E2" ""
-        expectError "3.e2" ""
-        expectError "3.E2" ""
-        expectError "3.e2" ""
-        expectError "3.E2" ""
-        
-        expectError "+3.e+2" ""
-        expectError "+3.E+2" ""
-        expectError "+3.e+2" ""
-        expectError "+3.E+2" ""
-        expectError "+3.e+2" ""
-        expectError "+3.E+2" ""
-        
-        expectError "-3.e-2" ""
-        expectError "-3.E-2" ""
-        expectError "-3.e-2" ""
-        expectError "-3.E-2" ""
-        expectError "-3.e-2" ""
-        expectError "-3.E-2" ""
-        
-        expectError ".e2" ""
-        expectError ".E2" ""
-        expectError ".e2" ""
-        expectError ".E2" ""
-        expectError ".e2" ""
-        expectError ".E2" ""
-        
-        expectError "+.e+2" ""
-        expectError "+.E+2" ""
-        expectError "+.e+2" ""
-        expectError "+.E+2" ""
-        expectError "+.e+2" ""
-        expectError "+.E+2" ""
-        
-        expectError "-.e-2" ""
-        expectError "-.E-2" ""
-        expectError "-.e-2" ""
-        expectError "-.E-2" ""
-        expectError "-.e-2" ""
-        expectError "-.E-2" ""
+        for s, el, es in allTriplets [""; "+"; "-"] ["e"; "E"] [""; "+"; "-"] do
+            expectError $"{s}3.{el}{es}4" ""
+            expectError $"{s}.{el}{es}4" ""
     }
     test "string" {
         let normal = "\"String\""
