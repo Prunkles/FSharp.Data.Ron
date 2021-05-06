@@ -8,8 +8,6 @@ module Grammar =
 
     open System.Text
     
-    
-    
     let mapUserState (mapping: 'v -> 'u) (p: Parser<_, 'u>) : Parser<_, 'v> =
         fun streamV ->
             let userStateV = streamV.UserState
@@ -100,62 +98,133 @@ module Grammar =
     // Numbers
     // ----------------
     
-    // digit = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9";
-    let digit = satisfy isDigit
+    type NumberType =
+        | Integer = 0
+        | Float = 1
     
-    // hex_digit = "A" | "a" | "B" | "b" | "C" | "c" | "D" | "d" | "E" | "e" | "F" | "f";
-    let hex_digit = hex
+    [<Struct>]
+    type ParsedNumber =
+        { Data: string
+          Type: NumberType }
     
-    // unsigned = (["0", ("b" | "o")], digit, { digit | '_' } |
-    //              "0x", (digit | hex_digit), { digit | hex_digit | '_' });
-    let unsigned' =
-        let binNumber = pstring "0b" .>>. many1Chars (anyOf "01") |>> fun(x,y)->x+y
-        let octNumber = pstring "0o" .>>. many1Chars octal |>> fun(x,y)->x+y
-        let hexNumber = pstring "0x" .>>. many1Chars hex |>> fun(x,y)->x+y
-        let decNumber = many1Chars digit
-        binNumber <|> octNumber <|> hexNumber <|> attempt decNumber
-        <?> "Unsigned"
+    let nonSpecialNumberP: Parser<ParsedNumber,_> =
+        fun stream -> 
+            // Store state
+            let index0 = stream.IndexToken
+            let stateTag0 = stream.StateTag
+            // inner state
+            let mutable c = stream.Peek()
+            let mutable isSigned = false
+            
+            // # helpers
+            let inline isBinary (ch: char) = ch = '0' || ch = '1'
+            let inline isSign (ch: char) = ch = '+' || ch = '-'
+            let inline isE (ch: char) = ch = 'e' || ch = 'E'
+            
+            // return true if skip 1 or more
+            let inline skipAndPeekWhile1 (cond: char -> bool) =
+                let skip1 = cond c
+                if skip1 then
+                    c <- stream.SkipAndPeek()
+                    while cond c do c <- stream.SkipAndPeek()
+                    true
+                else
+                    false
+            
+            let inline replyParsedNumber (ty: NumberType) =
+                let r = stream.ReadFrom(index0)
+                Reply({ParsedNumber.Data = r; ParsedNumber.Type = ty})
+            
+            let inline replyError err =
+                // Restore state
+                stream.Seek(index0)
+                stream.StateTag <- stateTag0
+                Reply(Error, err)
+            
+            let inline replyFatalError err =
+                Reply(Error, err)
+            
+            // # impl
+            
+            // parse after 'e' : '0.3e{}' '.3e{}'
+            let inline parseExpPart () =
+                if isSign c then
+                    c <- stream.SkipAndPeek()
+                if skipAndPeekWhile1 isDigit then
+                    replyParsedNumber NumberType.Float
+                else 
+                    replyFatalError (expected "exponent power")
+            
+            // parse after '.' : '0.{not req digits}' '.{req digits}'
+            let inline parseFractionalPart (reqFractionalDigits: bool) =
+                if isE c then
+                    replyFatalError (unexpected "exponent syntax")
+                else
+                let hasDigits = skipAndPeekWhile1 isDigit
+                if reqFractionalDigits && (not hasDigits) then
+                    replyFatalError (expected "fractional part")
+                else
+                if isE c then
+                    c <- stream.SkipAndPeek()
+                    parseExpPart ()
+                else
+                    replyParsedNumber NumberType.Float
+                
+            // # parsing
+            // check sign first
+            if isSign c then
+                isSigned <- true
+                c <- stream.SkipAndPeek()
+            
+            // check 0x | 0b | 0o prefixes
+            let c0, c1 = let two = stream.Peek2() in two.Char0, two.Char1
+            match c0, c1 with
+            | '0', 'x' ->
+                c <- stream.SkipAndPeek(2)
+                if skipAndPeekWhile1 isHex
+                then replyParsedNumber NumberType.Integer
+                else replyFatalError (expected "hex digits")
+            | '0', 'o' ->
+                c <- stream.SkipAndPeek(2)
+                if skipAndPeekWhile1 isOctal
+                then replyParsedNumber NumberType.Integer
+                else replyFatalError (expected "octal digits")
+            | '0', 'b' ->
+                c <- stream.SkipAndPeek(2)
+                if skipAndPeekWhile1 isBinary
+                then replyParsedNumber NumberType.Integer
+                else replyFatalError (expected "binary digits")
+            | _ ->
+                // other variants
+                let hasIntegerPart = skipAndPeekWhile1 isDigit
+                match c with 
+                | '.' when hasIntegerPart -> 
+                    c <- stream.SkipAndPeek()
+                    parseFractionalPart false
+                | '.' when not hasIntegerPart -> 
+                    c <- stream.SkipAndPeek()
+                    parseFractionalPart true
+                | ch when hasIntegerPart && (isE ch) ->
+                    c <- stream.SkipAndPeek()
+                    parseExpPart ()
+                | _ when hasIntegerPart ->
+                    replyParsedNumber NumberType.Integer
+                | _ ->
+                    // does not start with a digit or a dot or a sign
+                    match isSigned with
+                    | true -> replyError (expected "Number digit, .")
+                    | false -> replyError (expected "Number digit, ., +, -")
+                    
     
-    let sign = anyOf "+-"
-    
-    // signed = ["+" | "-"], unsigned;
-    let signed' =
-        opt sign .>>.? unsigned'
-        |>> fun (co0, s9) ->
-            (match co0 with Some c -> string c | None -> "")  + s9
-    
-    // float_exp = ("e" | "E"), digit, {digit};
-    let float_exp =
-        anyOf "eE" .>>. opt sign .>>. many1Chars digit
-        |>> fun ((c0, c1o), s9) -> string c0 + (match c1o with Some c -> string c | _ -> "") + s9
-    
-    // float_std = ["+" | "-"], digit, { digit }, ".", {digit}, [float_exp];
-    let float_std =
-        let p = opt sign .>>.? many1Chars digit .>>.? pchar '.' .>>. manyChars digit .>>. opt float_exp
-        p
-        |>> fun ((((c5o, s6), c7), s8), s9o) ->
-            (match c5o with Some c -> string c | _ -> "") + s6 + string c7 + s8 + (defaultArg s9o "")
-    
-    // float_frac = ".", digit, {digit}, [float_exp];
-    let float_frac =
-        pchar '.' .>>. many1Chars digit .>>. opt float_exp
-        |>> fun ((c0, s1), s2o) -> string c0 + s1 + (defaultArg s2o "")
-    
-    let float_signed_inf =
-        sign .>>.? pstring "inf"
-        |>> function
-            | '+', _ -> Double.PositiveInfinity
-            | '-', _ -> Double.NegativeInfinity
-            | _ -> invalidOp "Unreachable"
-    
-    // float = float_std | float_frac;
-    let floatP =
-        (float_std |>> float)
-        <|> (float_frac |>> float)
-        <|> float_signed_inf
-        <?> "Float"
-    
-    let floatR = floatP |>> RonValue.Float
+    let numberR =
+        nonSpecialNumberP
+        |>> fun pNum ->
+            match pNum.Type with
+            | NumberType.Integer ->
+                int pNum.Data |> RonValue.Integer
+            | NumberType.Float ->
+                float pNum.Data |> RonValue.Float
+            | _ -> ArgumentOutOfRangeException() |> raise
     
     // ----------------
     // String
@@ -296,9 +365,7 @@ module Grammar =
     
     // value = unsigned | signed | float | string | char | bool | option | list | map | tuple | struct | enum_variant;
     do valueRef := choice [
-        floatR
-        unsigned' |>> (int >> RonValue.Integer)
-        signed' |>> (int >> RonValue.Integer)
+        numberR
         stringR
         charR
         boolR

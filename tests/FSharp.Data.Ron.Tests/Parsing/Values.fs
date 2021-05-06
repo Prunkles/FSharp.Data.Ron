@@ -6,50 +6,90 @@ open Expecto
 open FSharp.Data.Ron
 open FSharp.Data.Ron.Tests.Utils
 
-let testValue input expected message =
+let expectValue input expected message =
     Expect.equal (Parsing.parseValue input) (Ok expected) message
+
+let expectError input message =
+    Expect.isError (Parsing.parseValue input) message
+
+let allTriplets s1 s2 s3 =
+    seq { for e1 in s1 do for e2 in s2 do for e3 in s3 do yield (e1, e2, e3) }
+
+let expectFloat source expected msg = expectValue source (RonValue.Float expected) msg
+
+let expectFloatFromString source msg =
+    let expected = float source
+    expectFloat source expected msg
 
 [<Tests>]
 let tests = testList "Values" [
     test "bool" {
-        testValue "true" (RonValue.Boolean true) ""
-        testValue "false" (RonValue.Boolean false) ""
+        expectValue "true" (RonValue.Boolean true) ""
+        expectValue "false" (RonValue.Boolean false) ""
     }
     test "char" {
-        testValue "'a'" (RonValue.Char 'a') ""
+        expectValue "'a'" (RonValue.Char 'a') ""
     }
     test "map" {
         let map = Map.ofSeq [
             RonValue.Char 'a', RonValue.Integer 1
             RonValue.Char 'b', RonValue.Float 2.0
         ]
-        testValue "{ 'a': 1, 'b': 2.0 }" (RonValue.Map map) ""
+        expectValue "{ 'a': 1, 'b': 2.0 }" (RonValue.Map map) ""
     }
     test "number" {
-        testValue "42" (RonValue.Integer 42) ""
-        testValue "3.1415" (RonValue.Float 3.1415) ""
+        // integer
+        expectValue "42" (RonValue.Integer 42) ""
+        expectValue "0x4f" (RonValue.Integer 0x4f) ""
+        expectValue "0o47" (RonValue.Integer 0o47) ""
+        expectValue "0b101" (RonValue.Integer 0b101) ""
+        
+        // float regular
+        for s in [""; "+"; "-"] do
+            expectFloatFromString $"{s}3.1415" ""
+        
+        // float regular exp
+        for s, el, es in allTriplets [""; "+"; "-"] ["e"; "E"] [""; "+"; "-"] do
+            expectFloatFromString $"{s}3.1415{el}{es}4" ""
+        
+        // float no integer part
+        for s in [""; "+"; "-"] do
+            expectFloatFromString $"{s}.31415" ""
+        
+        // float no integer part with exp
+        for s, el, es in allTriplets [""; "+"; "-"] ["e"; "E"] [""; "+"; "-"] do
+            expectFloatFromString $"{s}.1415{el}{es}3" ""
+        
+        // float only integer and exp
+        for s, el, es in allTriplets [""; "+"; "-"] ["e"; "E"] [""; "+"; "-"] do
+            expectFloatFromString $"{s}314{el}{es}2" ""
+        
+        // float invalid exponent
+        for s, el, es in allTriplets [""; "+"; "-"] ["e"; "E"] [""; "+"; "-"] do
+            expectError $"{s}3.{el}{es}4" ""
+            expectError $"{s}.{el}{es}4" ""
     }
     test "string" {
         let normal = "\"String\""
-        testValue normal (RonValue.String "String") "normal"
+        expectValue normal (RonValue.String "String") "normal"
         
         let raw = "r\"Raw String\""
-        testValue raw (RonValue.String "Raw String") "raw"
+        expectValue raw (RonValue.String "Raw String") "raw"
         
         let rawHashes = "r#\"Raw String\"#"
-        testValue rawHashes (RonValue.String "Raw String") "raw hashes"
+        expectValue rawHashes (RonValue.String "Raw String") "raw hashes"
         
         let rawEscaped = "r##\"Contains \"#\"##"
-        testValue rawEscaped (RonValue.String "Contains \"#") "raw escaped"
+        expectValue rawEscaped (RonValue.String "Contains \"#") "raw escaped"
         
         let rawMultiline = "r\"Multi\nLine\""
-        testValue rawMultiline (RonValue.String "Multi\nLine") "raw multiline"
+        expectValue rawMultiline (RonValue.String "Multi\nLine") "raw multiline"
     }
     test "list" {
         let vs = [
             RonValue.Integer 1
             RonValue.Float 2.0
         ]
-        testValue "[1, 2.0]" (RonValue.List vs) "list"
+        expectValue "[1, 2.0]" (RonValue.List vs) "list"
     }
 ]
