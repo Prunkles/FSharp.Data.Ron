@@ -2,9 +2,7 @@ module FSharp.Data.Ron.Tests.Parsing.Floats
 
 open System
 open Expecto
-open FSharp.Data.Ron
 open FSharp.Data.Ron.Decoding
-open FSharp.Data.Ron.Tests
 
 module Expect =
     
@@ -22,10 +20,14 @@ module Expect =
         | actual, expected -> Expect.equal actual expected message
 
 
-//[<Tests>]
+[<Tests>]
 let tests = testList "Parse floats" [
     test "Parse 'inf'" {
         let input = "inf"
+        Expect.equalResult Expect.equalFloats (Decode.fromString input Decode.float) (Ok infinity) ""
+    }
+    test "Parse '+inf'" {
+        let input = "+inf"
         Expect.equalResult Expect.equalFloats (Decode.fromString input Decode.float) (Ok infinity) ""
     }
     test "Parse '-inf'" {
@@ -36,19 +38,18 @@ let tests = testList "Parse floats" [
         let input = "NaN"
         Expect.equalResult Expect.equalFloats (Decode.fromString input Decode.float) (Ok nan) "'NaN' isn't parsed"
     }
-    testProperty "Parse '0.0' format float" <| fun (f: float) ->
-        let input =
-            match f with
-            | f when Double.IsPositiveInfinity(f) -> "inf"
-            | f when Double.IsNegativeInfinity(f) -> "-inf"
-            | f -> f.ToString("f400")
-        Expect.equalResult Expect.equalFloats (Decode.fromString input Decode.float) (Ok f) ""
+//    testProperty "Parse '0.0' format float" <| fun (f: float) ->
+//        let input =
+//            match f with
+//            | f when Double.IsPositiveInfinity(f) -> "inf"
+//            | f when Double.IsNegativeInfinity(f) -> "-inf"
+//            | f -> f.ToString("f400", System.Globalization.CultureInfo.InvariantCulture) // No format with f400 
+//        Expect.equalResult Expect.equalFloats (Decode.fromString input Decode.float) (Ok f) ""
     testProperty "Parse '0.0E0' format float" <| fun (f: float) ->
         let input =
             match f with
             | f when Double.IsPositiveInfinity(f) -> "inf"
             | f when Double.IsNegativeInfinity(f) -> "-inf"
-            | f -> f.ToString("E17")
-        
+            | f -> f.ToString("E17", System.Globalization.CultureInfo.InvariantCulture)
         Expect.equalResult Expect.equalFloats (Decode.fromString input Decode.float) (Ok f) ""
 ]
