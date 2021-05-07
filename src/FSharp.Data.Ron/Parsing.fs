@@ -8,8 +8,6 @@ module Grammar =
 
     open System.Text
     
-    
-    
     let mapUserState (mapping: 'v -> 'u) (p: Parser<_, 'u>) : Parser<_, 'v> =
         fun streamV ->
             let userStateV = streamV.UserState
@@ -321,7 +319,7 @@ type RonFile =
     { Extensions: string list
       Value: RonValue }
 
-let parse input =
+let parseFile input =
     let result = runParserOnString Grammar.RON () "" input
     match result with
     | Success ((exts, value), _, _) -> Result.Ok { Extensions = exts; Value = value }

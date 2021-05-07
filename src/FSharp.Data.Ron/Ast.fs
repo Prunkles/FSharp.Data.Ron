@@ -1,24 +1,11 @@
 namespace FSharp.Data.Ron
 
-(*
-A
-A()
-A(b)
-A(b: c)
-()
-(b)
-(b: c)
-*)
 
 type [<RequireQualifiedAccess>]
     AnyStruct =
-//    /// T
-//    | Tag of tag: string
-//    /// T() | ()
-//    | Unit of tag: string option
     /// ()
     | Unit
-    /// T() | T
+    /// T | T()
     | Tagged of tag: string * hasBraces: bool
     /// T?(n: v)
     | Named of tag: string option * content: (string * RonValue) list
@@ -81,8 +68,3 @@ module AnyStruct =
     let (|GetTag|_|) = function
         | EnumUnit name | EnumTuple (name, _) | EnumNamed (name, _) -> Some name
         | _ -> None
-    
-//    // T | () | T()
-//    let (|Unit|_|) = function
-//        | StructUnit _ -> Some ()
-//        | _ -> None
