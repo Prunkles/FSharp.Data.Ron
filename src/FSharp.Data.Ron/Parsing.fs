@@ -133,7 +133,7 @@ module Grammar =
                 else
                     false
             
-            let inline getExpectedIntegerType () =
+            let inline getExpectedIntegerType isSigned =
                 if isSigned then NumberType.Signed else NumberType.Unsigned 
             
             let inline replyParsedNumber (ty: NumberType) =
@@ -180,7 +180,7 @@ module Grammar =
             
             let inline parseSpecialInteger checker expectedMsg =
                 if skipAndPeekWhile1 checker
-                then replyParsedNumber (getExpectedIntegerType ())
+                then replyParsedNumber (getExpectedIntegerType isSigned)
                 else replyFatalError (expected expectedMsg)
             
             // check 0x | 0b | 0o | i | I | n | N prefixes
@@ -228,7 +228,7 @@ module Grammar =
                     c <- stream.SkipAndPeek()
                     parseExpPart ()
                 | _ when hasIntegerPart ->
-                    replyParsedNumber (getExpectedIntegerType ())
+                    replyParsedNumber (getExpectedIntegerType isSigned)
                 | _ ->
                     // does not start with a digit or a dot or a sign
                     match isSigned with
