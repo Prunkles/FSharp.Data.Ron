@@ -5,17 +5,18 @@ open FSharp.Data.Ron
 
 [<AutoOpen>]
 module private Helpers =
-    let rinteger = RonValue.Integer
-    let rfloat = RonValue.Float
+    let rinteger = int64 >> RonNumber.Signed >> RonValue.Number 
+    let ruint = uint64 >> RonNumber.Unsigned >> RonValue.Number 
+    let rfloat = RonNumber.Float >> RonValue.Number
     let rstring = RonValue.String
     let rchar = RonValue.Char
     let rboolean = RonValue.Boolean
     let rmap items = RonValue.Map (Map.ofSeq items)
     let rlist = RonValue.List
-    let runit = RonValue.AnyStruct AnyStruct.Unit
-    let rtagged = AnyStruct.Tagged >> RonValue.AnyStruct
-    let rnamed = AnyStruct.Named >> RonValue.AnyStruct
-    let runnamed = AnyStruct.Unnamed >> RonValue.AnyStruct
+    let runit = RonValue.AnyStruct RonStruct.Unit
+    let rtagged = RonStruct.Tagged >> RonValue.AnyStruct
+    let rnamed = RonStruct.Named >> RonValue.AnyStruct
+    let runnamed = RonStruct.Unnamed >> RonValue.AnyStruct
 
 
 let samples = [
@@ -47,18 +48,18 @@ let samples = [
         "boolean", rboolean true
         "float", rfloat 8.2
         "map", rmap [
-            rinteger 1, rchar '1'
-            rinteger 2, rchar '4'
-            rinteger 3, rchar '9'
-            rinteger 4, rchar '1'
-            rinteger 5, rchar '2'
-            rinteger 6, rchar '3'
+            ruint 1, rchar '1'
+            ruint 2, rchar '4'
+            ruint 3, rchar '9'
+            ruint 4, rchar '1'
+            ruint 5, rchar '2'
+            ruint 6, rchar '3'
         ]
         "nested", rnamed (Some "Nested", [
             "a", rstring "Decode me!"
             "b", rchar 'z'
         ])
-        "tuple", runnamed (None, [ rinteger 3; rinteger 7 ])
+        "tuple", runnamed (None, [ ruint 3; ruint 7 ])
         "vec", rlist [
             rnamed (None, [ "a", rstring "Nested 1"; "b", rchar 'x' ])
             rnamed (None, [ "a", rstring "Nested 2"; "b", rchar 'y' ])
@@ -95,12 +96,12 @@ Game(
         "level", rnamed (Some "Level", [
             "buildings", rlist [
                 rnamed (None, [
-                    "size", runnamed (None, [ rinteger 10; rinteger 20 ])
+                    "size", runnamed (None, [ ruint 10; ruint 20 ])
                     "color", rtagged ("Yellow", false)
                     "owner", rtagged ("None", false)
                 ])
                 rnamed (None, [
-                    "size", runnamed (None, [ rinteger 20; rinteger 25 ])
+                    "size", runnamed (None, [ ruint 20; ruint 25 ])
                     "color", runnamed (Some "Custom", [ rfloat 0.1; rfloat 0.8; rfloat 1.0 ])
                     "owner", runnamed (Some "Some", [ rstring "guy" ])
                 ])
@@ -142,7 +143,7 @@ GameConfig( // optional struct name
 )
 """,
     rnamed (Some "GameConfig", [
-        "window_size", runnamed (None, [ rinteger 800; rinteger 600 ])
+        "window_size", runnamed (None, [ ruint 800; ruint 600 ])
         "window_title", rstring "PAC-MAN"
         "fullscreen", rboolean false
         "mouse_sensitivity", rfloat 1.4

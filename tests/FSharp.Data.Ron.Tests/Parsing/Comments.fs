@@ -1,12 +1,10 @@
 module FSharp.Data.Ron.Tests.Parsing.Comments
 
 open Expecto
-open FSharp.Data.Ron
 open FSharp.Data.Ron.Decoding
-open FSharp.Data.Ron.Tests
+
 
 // https://github.com/ron-rs/ron/blob/ee1aacba02128935f8ad0cae63102a5842dff47b/tests/comments.rs
-
 
 [<Tests>]
 let tests = testList "Comment parsing" [

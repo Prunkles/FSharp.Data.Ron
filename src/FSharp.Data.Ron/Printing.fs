@@ -16,8 +16,9 @@ let print (value: RonValue) : string =
         | RonValue.Char c -> printf $"'%c{c}'"
         | RonValue.Boolean b -> printf $"%b{b}"
         | RonValue.String s -> printf $"\"%s{s}\""
-        | RonValue.Integer i -> printf $"%i{i}"
-        | RonValue.Float f -> printf $"%f{f}"
+        | RonValue.Number (RonNumber.Unsigned i) -> printf $"%i{i}"
+        | RonValue.Number (RonNumber.Signed i) -> printf $"%i{i}"
+        | RonValue.Number (RonNumber.Float i) -> printf $"%f{i}"
         
         | RonValue.List vs ->
             printf "["
@@ -41,11 +42,11 @@ let print (value: RonValue) : string =
         | RonValue.AnyStruct s ->
             let sprintTag = function Some t -> t | None -> ""
             match s with
-            | AnyStruct.Unit -> printf "()"
-            | AnyStruct.Tagged (tag, hasBraces) ->
+            | RonStruct.Unit -> printf "()"
+            | RonStruct.Tagged (tag, hasBraces) ->
                 let braces = if hasBraces then "()" else ""
                 printf $"%s{tag}{braces}"
-            | AnyStruct.Unnamed (tag, content) ->
+            | RonStruct.Unnamed (tag, content) ->
                 printf $"{sprintTag tag}"
                 printf "("
                 for v in content do
@@ -54,7 +55,7 @@ let print (value: RonValue) : string =
                     printf ","
                 printfn indent ""
                 printf ")"
-            | AnyStruct.Named (tag, content) ->
+            | RonStruct.Named (tag, content) ->
                 printf $"{sprintTag tag}"
                 printf "("
                 for n, v in content do

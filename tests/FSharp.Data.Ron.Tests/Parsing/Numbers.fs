@@ -2,9 +2,7 @@ module FSharp.Data.Ron.Tests.Parsing.Numbers
 
 open System
 open Expecto
-open FSharp.Data.Ron
 open FSharp.Data.Ron.Decoding
-open FSharp.Data.Ron.Tests
 
 
 let integerHex (n: int) =

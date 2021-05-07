@@ -2,6 +2,7 @@ module FSharp.Data.Ron.Parsing
 
 open System
 open FParsec
+open FSharp.Data.Ron
 
 // https://github.com/ron-rs/ron/blob/995d9e93d98b93cfbf0d6040230f6732dd4cf32b/docs/grammar.md
 module Grammar =
@@ -99,15 +100,16 @@ module Grammar =
     // ----------------
     
     type NumberType =
-        | Integer = 0
-        | Float = 1
+        | Unsigned = 0
+        | Signed = 1
+        | Float = 2
     
     [<Struct>]
     type ParsedNumber =
         { Data: string
           Type: NumberType }
     
-    let nonSpecialNumberP: Parser<ParsedNumber,_> =
+    let numberP: Parser<ParsedNumber,_> =
         fun stream -> 
             // Store state
             let index0 = stream.IndexToken
@@ -130,6 +132,9 @@ module Grammar =
                     true
                 else
                     false
+            
+            let inline getExpectedIntegerType () =
+                if isSigned then NumberType.Signed else NumberType.Unsigned 
             
             let inline replyParsedNumber (ty: NumberType) =
                 let r = stream.ReadFrom(index0)
@@ -173,24 +178,41 @@ module Grammar =
                 isSigned <- true
                 c <- stream.SkipAndPeek()
             
-            // check 0x | 0b | 0o prefixes
-            let c0, c1 = let two = stream.Peek2() in two.Char0, two.Char1
+            let inline parseSpecialInteger checker expectedMsg =
+                if skipAndPeekWhile1 checker
+                then replyParsedNumber (getExpectedIntegerType ())
+                else replyFatalError (expected expectedMsg)
+            
+            // check 0x | 0b | 0o | i | I | n | N prefixes
+            let c0, c1 = c, stream.Peek(1)
             match c0, c1 with
             | '0', 'x' ->
                 c <- stream.SkipAndPeek(2)
-                if skipAndPeekWhile1 isHex
-                then replyParsedNumber NumberType.Integer
-                else replyFatalError (expected "hex digits")
+                parseSpecialInteger isHex "hex digits"
             | '0', 'o' ->
                 c <- stream.SkipAndPeek(2)
-                if skipAndPeekWhile1 isOctal
-                then replyParsedNumber NumberType.Integer
-                else replyFatalError (expected "octal digits")
+                parseSpecialInteger isOctal "octal digits"
             | '0', 'b' ->
                 c <- stream.SkipAndPeek(2)
-                if skipAndPeekWhile1 isBinary
-                then replyParsedNumber NumberType.Integer
-                else replyFatalError (expected "binary digits")
+                parseSpecialInteger isBinary "binary digits"
+            // parse +inf/-inf/+NaN/-NaN
+            | 'i', _ | 'I', _ ->
+                c <- stream.SkipAndPeek(2) // c2
+                let c2 = c
+                if c1 = 'n' && c2 = 'f'
+                then
+                    c <- stream.SkipAndPeek()
+                    replyParsedNumber NumberType.Float
+                else replyError (expected "inf")
+            | 'n', _ | 'N', _ ->
+                c <- stream.SkipAndPeek(2) // c2
+                let c2 = c
+                if c1 = 'a' && (c2 = 'n' || c2 = 'N')
+                then
+                    c <- stream.SkipAndPeek()
+                    replyParsedNumber NumberType.Float
+                else replyError (expected "NaN")
+            // other variants
             | _ ->
                 // other variants
                 let hasIntegerPart = skipAndPeekWhile1 isDigit
@@ -201,11 +223,12 @@ module Grammar =
                 | '.' when not hasIntegerPart -> 
                     c <- stream.SkipAndPeek()
                     parseFractionalPart true
-                | ch when hasIntegerPart && (isE ch) ->
+                // {N}e{P}
+                | ch when (isE ch) && hasIntegerPart ->
                     c <- stream.SkipAndPeek()
                     parseExpPart ()
                 | _ when hasIntegerPart ->
-                    replyParsedNumber NumberType.Integer
+                    replyParsedNumber (getExpectedIntegerType ())
                 | _ ->
                     // does not start with a digit or a dot or a sign
                     match isSigned with
@@ -214,14 +237,22 @@ module Grammar =
                     
     
     let numberR =
-        nonSpecialNumberP
+        numberP
         |>> fun pNum ->
             match pNum.Type with
-            | NumberType.Integer ->
-                int pNum.Data |> RonValue.Integer
+            | NumberType.Unsigned ->
+                uint64 pNum.Data |> RonNumber.Unsigned 
+            | NumberType.Signed ->
+                int64 pNum.Data |> RonNumber.Signed
             | NumberType.Float ->
-                float pNum.Data |> RonValue.Float
+                match pNum.Data with
+                // Standard parser 
+                | "inf" | "Inf" | "+inf" | "+Inf" ->
+                    infinity |> RonNumber.Float
+                | "-inf" | "-Inf" -> Double.NegativeInfinity |> RonNumber.Float
+                | _ -> float pNum.Data |> RonNumber.Float
             | _ -> ArgumentOutOfRangeException() |> raise
+            |> RonValue.Number
     
     // ----------------
     // String
@@ -348,10 +379,10 @@ module Grammar =
         let namedStruct   = opt ident .>>? ws .>>.? namedContent
         let unnamedStruct = opt ident .>>? ws .>>.? unnamedContent
         choice [
-            unitStruct    |>> fun () -> AnyStruct.Unit
-            namedStruct   |>> AnyStruct.Named
-            unnamedStruct |>> AnyStruct.Unnamed
-            taggedStruct  |>> AnyStruct.Tagged
+            unitStruct    |>> fun () -> RonStruct.Unit
+            namedStruct   |>> RonStruct.Named
+            unnamedStruct |>> RonStruct.Unnamed
+            taggedStruct  |>> RonStruct.Tagged
         ]
     
     let anyStructR = anyStruct |>> RonValue.AnyStruct
