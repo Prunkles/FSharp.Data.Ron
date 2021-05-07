@@ -46,6 +46,19 @@ type DecoderBuilder() =
 module DecoderBuilderImpl =
     let decoder = DecoderBuilder()
 
+[<AutoOpen>]
+module private ConvertAliases =
+    let inline asString a = string a
+    let inline asFloat a = float a
+    let inline asFloat32 a = float32 a
+    let inline asInt a = int a
+    let inline asUInt a = uint a
+    let inline asInt64 a = int64 a
+    let inline asUInt64 a = uint64 a
+    let inline asInt16 a = int16 a
+    let inline asUInt16 a = uint16 a
+    let inline asInt8 a = int8 a
+    let inline asUInt8 a = uint8 a
 
 [<RequireQualifiedAccess>]
 module Decode =
@@ -60,13 +73,56 @@ module Decode =
     let string: Decoder<string> = function RonValue.String s -> Ok s | _ -> Error (DecodeError.Decode "Not a string")
     
     let float: Decoder<float> = function
-        | RonValue.Float f -> Ok f
-        | RonValue.Integer i -> Ok (float i)
-        | RonValue.AnyStruct (AnyStruct.Tagged (("nan" | "NaN"), false)) -> Ok nan
-        | RonValue.AnyStruct (AnyStruct.Tagged (("inf" | "Inf"), false)) -> Ok infinity
+        | RonValue.Number (RonNumber.Float f) -> Ok f
+        | RonValue.Number (RonNumber.Signed i) -> Ok (float i)
+        | RonValue.Number (RonNumber.Unsigned u) -> Ok (float u)
         | _ -> Error (DecodeError.Decode "Not a float")
     
-    let int: Decoder<int> = function RonValue.Integer i -> Ok i | _ -> Error (DecodeError.Decode "Not an integer")
+    let float32: Decoder<float32> = function
+        | RonValue.Number (RonNumber.Float f) -> Ok (float32 f)
+        | RonValue.Number (RonNumber.Signed i) -> Ok (float32 i)
+        | RonValue.Number (RonNumber.Unsigned u) -> Ok (float32 u)
+        | _ -> Error (DecodeError.Decode "Not a float")
+    
+    let int64: Decoder<int64> = function
+        | RonValue.Number (RonNumber.Signed i) -> Ok i
+        | RonValue.Number (RonNumber.Unsigned u) -> Ok (asInt64 u)
+        | _ -> Error (DecodeError.Decode "Not an integer")
+    
+    let uint64: Decoder<uint64> = function
+        | RonValue.Number (RonNumber.Signed i) -> Ok (asUInt64 i)
+        | RonValue.Number (RonNumber.Unsigned u) -> Ok u
+        | _ -> Error (DecodeError.Decode "Not an integer")
+    
+    let int: Decoder<int> = function
+        | RonValue.Number (RonNumber.Signed i) -> Ok (asInt i)
+        | RonValue.Number (RonNumber.Unsigned u) -> Ok (asInt u)
+        | _ -> Error (DecodeError.Decode "Not an integer")
+    
+    let uint: Decoder<uint> = function
+        | RonValue.Number (RonNumber.Signed i) -> Ok (asUInt i)
+        | RonValue.Number (RonNumber.Unsigned u) -> Ok (asUInt u)
+        | _ -> Error (DecodeError.Decode "Not an integer")
+    
+    let int16: Decoder<int16> = function
+        | RonValue.Number (RonNumber.Signed i) -> Ok (asInt16 i)
+        | RonValue.Number (RonNumber.Unsigned u) -> Ok (asInt16 u)
+        | _ -> Error (DecodeError.Decode "Not an integer")
+    
+    let uint16: Decoder<uint16> = function
+        | RonValue.Number (RonNumber.Signed i) -> Ok (asUInt16 i)
+        | RonValue.Number (RonNumber.Unsigned u) -> Ok (asUInt16 u)
+        | _ -> Error (DecodeError.Decode "Not an integer")
+
+    let int8: Decoder<int8> = function
+        | RonValue.Number (RonNumber.Signed i) -> Ok (asInt8 i)
+        | RonValue.Number (RonNumber.Unsigned u) -> Ok (asInt8 u)
+        | _ -> Error (DecodeError.Decode "Not an integer")
+    
+    let uint8: Decoder<uint8> = function
+        | RonValue.Number (RonNumber.Signed i) -> Ok (asUInt8 i)
+        | RonValue.Number (RonNumber.Unsigned u) -> Ok (asUInt8 u)
+        | _ -> Error (DecodeError.Decode "Not an integer")
     
     let list (elementDecoder: Decoder<'a>) : Decoder<'a list> = function
         | RonValue.List vs ->
@@ -102,7 +158,7 @@ module Decode =
         | _ -> Error (DecodeError.Decode "Not a map")
     
     let field name (decoder: Decoder<'a>) : Decoder<'a> = function
-        | RonValue.AnyStruct (AnyStruct.StructNamed (_, content)) ->
+        | RonValue.AnyStruct (RonStruct.StructNamed (_, content)) ->
             let r = content |> Seq.tryPick (fun (name', value') -> if name' = name then Some value' else None)
             match r with
             | None -> Error (DecodeError.Decode $"No field {name}")
@@ -114,7 +170,7 @@ module Decode =
         | _ -> Error (DecodeError.Decode "Not contains fields")
     
     let item idx (decoder: Decoder<'a>) : Decoder<'a> = function
-        | RonValue.AnyStruct (AnyStruct.StructTuple (_, items)) ->
+        | RonValue.AnyStruct (RonStruct.StructTuple (_, items)) ->
             items |> List.tryItem idx
             |> function
                 | Some item -> decoder item |> resultMapErrorAggregate $"Failed decode {idx}'nth item"
@@ -122,14 +178,14 @@ module Decode =
         | _ -> Error (DecodeError.Decode "Has no items")
     
     let unit : Decoder<unit> = function
-        | RonValue.AnyStruct AnyStruct.Unit -> Ok ()
+        | RonValue.AnyStruct RonStruct.Unit -> Ok ()
         | _ -> Error (DecodeError.Decode "Not a unit")
     
     type IFieldGetter =
         abstract Field: string -> Decoder<'f> -> Result<'f, DecodeError>
     
     let record (builder: IFieldGetter -> Result<'r, DecodeError>) : Decoder<'r> = function
-        | RonValue.AnyStruct (AnyStruct.StructNamed (_, _)) as rvalue ->
+        | RonValue.AnyStruct (RonStruct.StructNamed (_, _)) as rvalue ->
             let getField (name: string) (decoder: Decoder<'f>) : Result<'f, DecodeError> =
                 let r = rvalue |> field name decoder
                 r
@@ -143,7 +199,7 @@ module Decode =
         abstract Item: int -> Decoder<'a> -> Result<'a, DecodeError>
     
     let tuple (builder: ITupleGetter -> Result<'t, DecodeError>) : Decoder<'t> = function
-        | RonValue.AnyStruct (AnyStruct.Tuple items) ->
+        | RonValue.AnyStruct (RonStruct.Tuple items) ->
             let getItem i decoder =
                 match items |> List.tryItem i with
                 | None -> Error (DecodeError.Decode $"Tuple has no {i}'th item")
@@ -153,19 +209,19 @@ module Decode =
         | _ -> Error (DecodeError.Decode "Not a tuple")
     
 //    let withTag (tag: string) decoder = function
-//        | RonValue.AnyStruct (AnyStruct.GetTag (Equals tag)) as rvalue -> decoder rvalue
+//        | RonValue.AnyStruct (RonStruct.GetTag (Equals tag)) as rvalue -> decoder rvalue
 //        | _ -> Error (DecodeError.Decode "Specified case name not matches")
     
     let tag : Decoder<string> = function
-        | RonValue.AnyStruct (AnyStruct.GetTag tag) -> Ok tag
+        | RonValue.AnyStruct (RonStruct.GetTag tag) -> Ok tag
         | _ -> Error (DecodeError.Decode "Has no tag")
     
     /// Alias to `Decode.item 0`
     let single innerDecoder = item 0 innerDecoder
     
     let option (innerDecoder: Decoder<'a>) : Decoder<'a option> = function
-        | RonValue.AnyStruct (AnyStruct.Tagged ("None", false)) ->
+        | RonValue.AnyStruct (RonStruct.Tagged ("None", false)) ->
             Ok None
-        | RonValue.AnyStruct (AnyStruct.Unnamed (Some "Some", [inner])) ->
+        | RonValue.AnyStruct (RonStruct.Unnamed (Some "Some", [inner])) ->
             innerDecoder inner |> Result.map Some
         | _ -> Error (DecodeError.Decode "Not an option")

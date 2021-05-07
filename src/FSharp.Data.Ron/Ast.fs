@@ -1,48 +1,52 @@
 namespace FSharp.Data.Ron
 
 
+[<RequireQualifiedAccess>]
+type RonNumber =
+    | Signed of int64
+    | Unsigned of uint64
+    | Float of float
+
 type [<RequireQualifiedAccess>]
-    AnyStruct =
+    RonStruct =
     /// ()
     | Unit
     /// T | T()
     | Tagged of tag: string * hasBraces: bool
-    /// T?(n: v)
+    /// T(n: v) | (n: v)
     | Named of tag: string option * content: (string * RonValue) list
-    /// T?(v)
+    /// T(v) | (v)
     | Unnamed of tag: string option * content: RonValue list
 
 and [<RequireQualifiedAccess>]
     RonValue =
-    | AnyStruct of AnyStruct
-    
+    | AnyStruct of RonStruct
     | List of RonValue list
     | Map of Map<RonValue, RonValue>
     // Primitives
     | Boolean of bool
-    | Float of float
-    | Integer of int
+    | Number of RonNumber
     | String of string
     | Char of char
 
-module AnyStruct =
+module RonStruct =
     
     // () | T | T()
     let (|StructUnit|_|) = function
-        | AnyStruct.Unit -> Some None
-        | AnyStruct.Tagged (tag, _) -> Some (Some tag)
+        | RonStruct.Unit -> Some None
+        | RonStruct.Tagged (tag, _) -> Some (Some tag)
         | _ -> None
     
     // T(v) | (v)
     let (|StructTuple|_|) = function
         | StructUnit tag -> Some (tag, [])
-        | AnyStruct.Unnamed (tag, content) -> Some (tag, content)
+        | RonStruct.Unnamed (tag, content) -> Some (tag, content)
         | _ -> None
     
     // T(n: v) | (n: v)
     let (|StructNamed|_|) = function
         | StructUnit tag -> Some (tag, [])
-        | AnyStruct.Named (tag, content) -> Some (tag, content)
+        | RonStruct.Named (tag, content) -> Some (tag, content)
         | _ -> None
     
     // T | T()
@@ -65,6 +69,7 @@ module AnyStruct =
         | StructTuple (None, content) -> Some content
         | _ -> None
     
+    // T*
     let (|GetTag|_|) = function
         | EnumUnit name | EnumTuple (name, _) | EnumNamed (name, _) -> Some name
         | _ -> None
