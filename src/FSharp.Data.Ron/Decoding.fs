@@ -2,8 +2,6 @@
 
 module FSharp.Data.Ron.Decoding
 
-open System
-
 [<RequireQualifiedAccess>]
 type DecodeError =
     | Parse of string
@@ -66,7 +64,7 @@ module private ConvertAliases =
 module Decode =
     
     let fromString input (decoder: Decoder<_>) =
-        match Parsing.parse input with
+        match Parsing.parseFile input with
         | Error err -> Error (DecodeError.Parse err)
         | Ok { Value = value } ->
             let result = decoder value
@@ -210,9 +208,9 @@ module Decode =
             builder getter |> resultMapErrorAggregate "Failed decode tuple"
         | _ -> Error (DecodeError.Decode "Not a tuple")
     
-    let withTag (tag: string) decoder = function
-        | RonValue.AnyStruct (RonStruct.GetTag (Equals tag)) as rvalue -> decoder rvalue
-        | _ -> Error (DecodeError.Decode "Specified case name not matches")
+//    let withTag (tag: string) decoder = function
+//        | RonValue.AnyStruct (RonStruct.GetTag (Equals tag)) as rvalue -> decoder rvalue
+//        | _ -> Error (DecodeError.Decode "Specified case name not matches")
     
     let tag : Decoder<string> = function
         | RonValue.AnyStruct (RonStruct.GetTag tag) -> Ok tag

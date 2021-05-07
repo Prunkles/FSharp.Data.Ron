@@ -11,7 +11,7 @@ type [<RequireQualifiedAccess>]
     RonStruct =
     /// ()
     | Unit
-    /// T() | T
+    /// T | T()
     | Tagged of tag: string * hasBraces: bool
     /// T(n: v) | (n: v)
     | Named of tag: string option * content: (string * RonValue) list
@@ -73,8 +73,3 @@ module RonStruct =
     let (|GetTag|_|) = function
         | EnumUnit name | EnumTuple (name, _) | EnumNamed (name, _) -> Some name
         | _ -> None
-    
-//    // T | () | T()
-//    let (|Unit|_|) = function
-//        | StructUnit _ -> Some ()
-//        | _ -> None

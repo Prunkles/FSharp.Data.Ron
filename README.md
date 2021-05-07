@@ -1,5 +1,7 @@
 # FSharp.Data.Ron
 
+[![Nuget](https://img.shields.io/nuget/vpre/FSharp.Data.Ron?style=flat-square)](https://www.nuget.org/packages/FSharp.Data.Ron/)
+
 F# [Rusty Object Notation](https://github.com/ron-rs/ron) parsing library.
 
 
@@ -17,10 +19,13 @@ open FSharp.Data.Ron.Decoding
 
 ```f#
 > Decode.fromString "32" Decode.int
-val it : int = Ok 32
+val it : Result<int, DecodeError> = Ok 32
 
 > Decode.fromString "\"foo\"" Decode.string
-val it : int = Ok "foo"
+val it : Result<string, DecodeError> = Ok "foo"
+
+> Decode.fromString """Person(name: "Ron", age: 24)""" (Decode.field "name" Decode.string)
+val it : Result<string, DecodeError> = Ok "Ron"
 ```
 
 ### Builder style

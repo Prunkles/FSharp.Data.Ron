@@ -206,7 +206,7 @@ Scene( // class name is optional
 [<Tests>]
 let tests = test "Samples from docs" {
     for input, expected in samples do
-        let ron = Parsing.parse input
+        let ron = Parsing.parseFile input
         let actual = ron |> Result.map (fun r -> r.Value)
         Expect.equal actual (Ok expected) ""
 }
