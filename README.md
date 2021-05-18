@@ -35,7 +35,7 @@ type Vector2 = { X: int; Y: int }
 
 let decode = decoder {
     let! x = Decode.field "x" Decode.int
-    and! y = Decode.field "y" Decide.int
+    and! y = Decode.field "y" Decode.int
     return { X = x; Y = y }
 }
 ```
